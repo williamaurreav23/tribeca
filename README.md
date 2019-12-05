@@ -102,6 +102,7 @@ Runs on the latest node.js (v7.8 or greater). Persistence is acheived using mong
     - BTU
     - MAID
     - AMP
+    - GBT
     
   * WebClientUsername and WebClientPassword - Username and password for [web UI](https://github.com/michaelgrosner/tribeca#web-ui) access. If kept as `NULL`, no the web client will not require authentication (Not recommended at all!!)
 

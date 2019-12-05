@@ -1,7 +1,7 @@
 {
     "TRIBECA_MODE": "prod",
-    "EXCHANGE": "null",
-    "TradedPair": "BTC/USD",
+    "EXCHANGE": "bitforex",
+    "TradedPair": "GBT/BTC",
     "MongoDbUrl": "mongodb://localhost:27017/tribeca",
     "WebClientUsername": "NULL",
     "WebClientPassword": "NULL",
@@ -32,5 +32,11 @@
     "BitfinexHttpUrl": "https://api.bitfinex.com/v1",
     "BitfinexKey": "NULL",
     "BitfinexSecret": "NULL",
-    "BitfinexOrderDestination": "Bitfinex"
+    "BitfinexOrderDestination": "Bitfinex",
+
+    "BitforexWsUrl": "wss://www.bitforex.com/mkapi/coinGroup1/ws",
+    "BitforexHttpUrl": "https://api.bitforex.com",
+    "BitforexApiKey": "1232d48c5b01920da4442da2fb043234",
+    "BitforexSecretKey": "769a6b8b5e166a446ab770772f25e771",
+    "BitforexOrderDestination": "Bitforex"
 }
