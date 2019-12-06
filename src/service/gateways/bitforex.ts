@@ -68,6 +68,18 @@ var bitforexCancelOrder = (order) => {
     };
 }
 
+var bitforexGetAllAssets = () => {
+    var PLACE_ORDER_URL = '/api/v1/fund/allAccount';
+    var params:any = {};
+    params.accessKey = API_KEY;
+    params.nonce = new Date().getTime();
+    params.signData = generateSign(PLACE_ORDER_URL, params);
+    return {
+        actionUrl: PLACE_ORDER_URL,
+        msg: params
+    };
+}
+
 interface BitforexMessageIncomingMessage {
     param : any;
     success?: boolean;
@@ -279,7 +291,7 @@ class BitforexOrderEntryGateway implements Interfaces.IOrderEntryGateway {
                 orderId: order.orderId,
                 computationalLatency: Utils.fastDiff(Utils.date(), order.time)
             });
-        });
+        }).done();
             
         // this._socket.send<OrderAck>("ok_spotusd_trade", this._signer.signMessage(o), () => {
         //     this.OrderUpdate.trigger({
@@ -315,7 +327,7 @@ class BitforexOrderEntryGateway implements Interfaces.IOrderEntryGateway {
                 orderId: cancel.orderId,
                 computationalLatency: Utils.fastDiff(Utils.date(), cancel.time)
             });
-        })
+        }).done();
 
         // this._socket.send<OrderAck>("ok_spotusd_cancel_order", this._signer.signMessage(c), () => {
         //     this.OrderUpdate.trigger({
@@ -464,30 +476,38 @@ class BitforexHttp {
     }
 }
 
-class OkCoinPositionGateway implements Interfaces.IPositionGateway {
+// Inigo V1
+class BitforexPositionGateway implements Interfaces.IPositionGateway {
     PositionUpdate = new Utils.Evt<Models.CurrencyPosition>();
 
     private static convertCurrency(name : string) : Models.Currency {
         switch (name.toLowerCase()) {
             case "usd": return Models.Currency.USD;
-            case "ltc": return Models.Currency.LTC;
+            case "gbt": return Models.Currency.GBT;
             case "btc": return Models.Currency.BTC;
             default: throw new Error("Unsupported currency " + name);
         }
     }
 
     private trigger = () => {
-        this._http.post("userinfo.do", {}).then(msg => {
-            var free = (<any>msg.data).info.funds.free;
-            var freezed = (<any>msg.data).info.funds.freezed;
+        const requestData = bitforexGetAllAssets();
+        this._http.post(requestData.actionUrl, requestData.msg).then(msg => {
+            var currencies = msg.data || [];
+            for (var i = 0; i < currencies.length; i++) {
+                try {
+                    var currency = currencies[i];
+                    var currencyName = currency.currency;
 
-            for (var currencyName in free) {
-                if (!free.hasOwnProperty(currencyName)) continue;
-                var amount = parseFloat(free[currencyName]);
-                var held = parseFloat(freezed[currencyName]);
+                    var currencyModel = BitforexPositionGateway.convertCurrency(currencyName);
 
-                var pos = new Models.CurrencyPosition(amount, held, OkCoinPositionGateway.convertCurrency(currencyName));
-                this.PositionUpdate.trigger(pos);
+                    var amount = currency.active;
+                    var held = currency.frozen;
+
+                    var pos = new Models.CurrencyPosition(amount, held, currencyModel);
+                    this.PositionUpdate.trigger(pos);
+                } catch (e) {
+                    console.log(e);
+                }
             }
         }).done();
     };
@@ -499,13 +519,13 @@ class OkCoinPositionGateway implements Interfaces.IPositionGateway {
     }
 }
 
-class OkCoinBaseGateway implements Interfaces.IExchangeDetailsGateway {
+class BitforexBaseGateway implements Interfaces.IExchangeDetailsGateway {
     public get hasSelfTradePrevention() {
         return false;
     }
 
     name() : string {
-        return "OkCoin";
+        return "Bitforex";
     }
 
     makeFee() : number {
@@ -517,7 +537,7 @@ class OkCoinBaseGateway implements Interfaces.IExchangeDetailsGateway {
     }
 
     exchange() : Models.Exchange {
-        return Models.Exchange.OkCoin;
+        return Models.Exchange.Bitforex;
     }
     
     constructor(public minTickIncrement: number) {}
@@ -551,8 +571,8 @@ class Bitforex extends Interfaces.CombinedGateway {
         super(
             new BitforexMarketDataGateway(socket, symbol),
             orderGateway,
-            new OkCoinPositionGateway(http),
-            new OkCoinBaseGateway(.01)); // uh... todo
+            new BitforexPositionGateway(http),
+            new BitforexBaseGateway(.01)); // uh... todo
         }
 }
 
