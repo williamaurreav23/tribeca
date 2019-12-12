@@ -9,6 +9,7 @@ RUN npm install
 RUN grunt compile
 
 EXPOSE 3000 5000
+EXPOSE 9229 9229
 
 WORKDIR tribeca/service
 

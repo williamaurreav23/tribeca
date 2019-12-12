@@ -18,3 +18,5 @@ services:
   tribeca-mongo:
     image: mongo
     restart: on-failure
+    ports: 
+      - "27017:27017"

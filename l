@@ -1,3 +1,3 @@
 #!/bin/bash
 
-grunt compile && node tribeca/service/main.js
+grunt compile && node --inspect tribeca/service/main.js

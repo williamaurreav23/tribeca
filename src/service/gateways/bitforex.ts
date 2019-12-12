@@ -136,22 +136,22 @@ interface SubscriptionRequest extends SignedMessage { }
 //Inigo V1
 class BitforexWebsocket {
 	send = <T>(msg: any, cb?: () => void) => {
-    
-        console.log(colors.blue('SOCKET SEND'));
-        console.log(colors.blue(JSON.stringify(msg)));
-        
+            
         this._ws.send(JSON.stringify(msg), (e: Error) => {
             if (!e && cb) cb();
         });
     }
     
     setHandler = <T>(channel : string, handler: (newMsg : Models.Timestamped<T>) => void) => {
-        this._handlers[channel] = handler;
+        if (!this._handlers[channel]) {
+            this._handlers[channel] = [handler];    
+        } else {
+            this._handlers[channel].push(handler);
+        }
+
     }
 
     private onMessage = (raw : string) => {
-        console.log(colors.blue('SOCKET MESSAGE'));
-        console.log(colors.blue(raw));
         var t = Utils.date();
         try {
             if (raw.indexOf('pong_p') !== -1) {
@@ -170,14 +170,16 @@ class BitforexWebsocket {
                     this._log.info("Successfully connected to %s", msg.event);
             }
 
-            var handler = this._handlers[msg.event];
+            var handlers = this._handlers[msg.event];
 
-            if (typeof handler === "undefined") {
+            if (typeof handlers === "undefined") {
                 this._log.warn("Got message on unknown topic", msg);
                 return;
             }
 
-            handler(new Models.Timestamped(msg.data, t));
+            _(handlers).forEach((handler) => {
+                handler(new Models.Timestamped(msg.data, t));
+            });
         }
         catch (e) {
             this._log.error(e, "Error parsing msg %o", raw);
@@ -188,15 +190,13 @@ class BitforexWebsocket {
     ConnectChanged = new Utils.Evt<Models.ConnectivityStatus>();
     private _serializedHeartbeat = 'ping_p';
     private _log = log("tribeca:gateway:BitforexWebsocket");
-    private _handlers : { [channel : string] : (newMsg : Models.Timestamped<any>) => void} = {};
+    private _handlers : { [channel : string] : [(newMsg : Models.Timestamped<any>) => void]} = {};
     private _ws : ws;
     public pingInterval: any;
     constructor(config : Config.IConfigProvider) {
         this._ws = new ws(config.GetString("BitforexWsUrl"));
         this._ws.on("open", () => {
-            console.log(colors.blue('SOCKET OPENED'));
             this.pingInterval = setInterval(() => {
-                console.log(colors.blue('SOCKET PING'));
                 this._ws.send(this._serializedHeartbeat);
             }, 10000);
             this.ConnectChanged.trigger(Models.ConnectivityStatus.Connected)
@@ -212,8 +212,6 @@ class BitforexMarketDataGateway implements Interfaces.IMarketDataGateway {
 
     MarketTrade = new Utils.Evt<Models.GatewayMarketTrade>();
     private onTrade = (trades : Models.Timestamped<Array<BitforexTradeRecord>>) => {
-        console.log(colors.blue('DEPTH TRADE RECEIVED'));
-        console.log(colors.blue(JSON.stringify(trades.data)));
         // [tid, price, amount, time, type]
         _.forEach(trades.data, (trade : BitforexTradeRecord) => {
             var px = trade.price;
@@ -231,8 +229,6 @@ class BitforexMarketDataGateway implements Interfaces.IMarketDataGateway {
         
     private readonly Depth: number = 25;
     private onDepth = (depth : Models.Timestamped<BitforexDepthMessage>) => {
-        console.log(colors.blue('DEPTH DATA RECEIVED'));
-        console.log(colors.blue(JSON.stringify(depth.data)));
         var msg = depth.data;
 
         var bids = _(msg.bids).take(this.Depth).map(BitforexMarketDataGateway.GetLevel).value();
@@ -244,7 +240,7 @@ class BitforexMarketDataGateway implements Interfaces.IMarketDataGateway {
 
     private _log = log("tribeca:gateway:BitofrexMD");
     constructor(socket : BitforexWebsocket, symbolProvider: BitforexSymbolProvider) {
-        console.log(colors.green('BITFOREX START DATA GAEWAY'));
+        console.log(colors.green('BITFOREX START DATA GATEWAY'));
         var depthChannel = "depth10";
         var tradesChannel = "trade";
         
@@ -593,7 +589,7 @@ class Bitforex extends Interfaces.CombinedGateway {
             new BitforexMarketDataGateway(socket, symbol),
             orderGateway,
             new BitforexPositionGateway(http),
-            new BitforexBaseGateway(.01)); // uh... todo
+            new BitforexBaseGateway(.000000000001)); // uh... todo
         }
 }
 

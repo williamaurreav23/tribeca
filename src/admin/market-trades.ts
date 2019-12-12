@@ -28,6 +28,7 @@ class MarketTradeViewModel {
 
     constructor(trade: Models.MarketTrade) {
         this.price = trade.price;
+        console.log(this.price);
         this.size = trade.size;
         this.time = (moment.isMoment(trade.time) ? trade.time : moment(trade.time));
 
@@ -79,7 +80,7 @@ var MarketTradeGrid = ($scope: MarketTradeScope,
             { width: 80, field: 'time', displayName: 't', cellFilter: "momentShortDate",
                 sortingAlgorithm: Shared.fastDiff,
                 sort: { direction: uiGridConstants.DESC, priority: 1} },
-            { width: 50, field: 'price', displayName: 'px' },
+            { width: 100, field: 'price', displayName: 'px' },
             { width: 40, field: 'size', displayName: 'sz' },
             { width: 40, field: 'make_side', displayName: 'ms' },
             { width: 40, field: 'qBz', displayName: 'qBz' },
