@@ -1,7 +1,9 @@
 # General config properties. Properties with `NULL` should be replaced with your own exchange account information.
 TRIBECA_MODE=dev
-EXCHANGE=null
-TradedPair=BTC/USD
+EXCHANGE=bitforex
+TradedPair=GBT/BTC
+
+
 WebClientUsername=NULL
 WebClientPassword=NULL
 WebClientListenPort=3000
@@ -48,3 +50,10 @@ BitfinexOrderDestination=Bitfinex
 ## Coinbase
 #CoinbaseRestUrl=https://api.gdax.com
 #CoinbaseWebsocketUrl=wss://ws-feed.gdax.com
+
+
+BitforexWsUrl=wss://www.bitforex.com/mkapi/coinGroup1/ws
+BitforexHttpUrl=https://api.bitforex.com
+BitforexApiKey=1232d48c5b01920da4442da2fb043234
+BitforexSecretKey=769a6b8b5e166a446ab770772f25e771
+BitforexOrderDestination=Bitforex

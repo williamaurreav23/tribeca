@@ -5,6 +5,7 @@
 
 import ws = require('ws');
 import Q = require("q");
+import colors = require('colors');
 import crypto = require("crypto");
 import request = require("request");
 import url = require("url");
@@ -134,13 +135,12 @@ interface SubscriptionRequest extends SignedMessage { }
 // CHANNEL is bitforex websocket event
 //Inigo V1
 class BitforexWebsocket {
-	send = <T>(channel : string, parameters: any, cb?: () => void) => {
-        var subsReq : any = {event: 'addChannel', channel: channel};
+	send = <T>(msg: any, cb?: () => void) => {
+    
+        console.log(colors.blue('SOCKET SEND'));
+        console.log(colors.blue(JSON.stringify(msg)));
         
-        if (parameters !== null) 
-            subsReq.parameters = parameters;
-        
-        this._ws.send(JSON.stringify(subsReq), (e: Error) => {
+        this._ws.send(JSON.stringify(msg), (e: Error) => {
             if (!e && cb) cb();
         });
     }
@@ -150,12 +150,14 @@ class BitforexWebsocket {
     }
 
     private onMessage = (raw : string) => {
+        console.log(colors.blue('SOCKET MESSAGE'));
+        console.log(colors.blue(raw));
         var t = Utils.date();
         try {
             if (raw.indexOf('pong_p') !== -1) {
                 return;
             }
-            var msg : BitforexMessageIncomingMessage = JSON.parse(raw)[0];
+            var msg : BitforexMessageIncomingMessage = JSON.parse(raw);
 
             if (msg.event !== 'depth10' && msg.event !== 'trade') {
                 return;
@@ -192,7 +194,9 @@ class BitforexWebsocket {
     constructor(config : Config.IConfigProvider) {
         this._ws = new ws(config.GetString("BitforexWsUrl"));
         this._ws.on("open", () => {
+            console.log(colors.blue('SOCKET OPENED'));
             this.pingInterval = setInterval(() => {
+                console.log(colors.blue('SOCKET PING'));
                 this._ws.send(this._serializedHeartbeat);
             }, 10000);
             this.ConnectChanged.trigger(Models.ConnectivityStatus.Connected)
@@ -208,6 +212,8 @@ class BitforexMarketDataGateway implements Interfaces.IMarketDataGateway {
 
     MarketTrade = new Utils.Evt<Models.GatewayMarketTrade>();
     private onTrade = (trades : Models.Timestamped<Array<BitforexTradeRecord>>) => {
+        console.log(colors.blue('DEPTH TRADE RECEIVED'));
+        console.log(colors.blue(JSON.stringify(trades.data)));
         // [tid, price, amount, time, type]
         _.forEach(trades.data, (trade : BitforexTradeRecord) => {
             var px = trade.price;
@@ -225,6 +231,8 @@ class BitforexMarketDataGateway implements Interfaces.IMarketDataGateway {
         
     private readonly Depth: number = 25;
     private onDepth = (depth : Models.Timestamped<BitforexDepthMessage>) => {
+        console.log(colors.blue('DEPTH DATA RECEIVED'));
+        console.log(colors.blue(JSON.stringify(depth.data)));
         var msg = depth.data;
 
         var bids = _(msg.bids).take(this.Depth).map(BitforexMarketDataGateway.GetLevel).value();
@@ -236,6 +244,7 @@ class BitforexMarketDataGateway implements Interfaces.IMarketDataGateway {
 
     private _log = log("tribeca:gateway:BitofrexMD");
     constructor(socket : BitforexWebsocket, symbolProvider: BitforexSymbolProvider) {
+        console.log(colors.green('BITFOREX START DATA GAEWAY'));
         var depthChannel = "depth10";
         var tradesChannel = "trade";
         
@@ -411,21 +420,25 @@ class BitforexOrderEntryGateway implements Interfaces.IOrderEntryGateway {
             this.ConnectChanged.trigger(cs);
             
             if (cs === Models.ConnectivityStatus.Connected) {
-                _socket.send("depth10", {
-                    type: 'subHq',
-                    param: {
-                        businessType: _symbolProvider.coinSymbol,
-                        dType: 0,
-                        size: 100,
+                _socket.send([
+                    {
+                        type: 'subHq',
+                        event: 'depth10',
+                        param: {
+                            businessType: _symbolProvider.coinSymbol,
+                            dType: 0,
+                            size: 100,
+                        }
+                    },
+                    {
+                        type: 'subHq',
+                        event: 'trade',
+                        param: {
+                            businessType: _symbolProvider.coinSymbol,
+                            size: 100,
+                        }
                     }
-                });
-                _socket.send("trade", {
-                    type: 'subHq',
-                    param: {
-                        businessType: _symbolProvider.coinSymbol,
-                        size: 100,
-                    }
-                });
+                ]);
             }
         });
     }
@@ -491,7 +504,7 @@ class BitforexPositionGateway implements Interfaces.IPositionGateway {
 
     private trigger = () => {
         const requestData = bitforexGetAllAssets();
-        this._http.post(requestData.actionUrl, requestData.msg).then(msg => {
+        this._http.post<Array<any>>(requestData.actionUrl, requestData.msg).then(msg => {
             var currencies = msg.data || [];
             for (var i = 0; i < currencies.length; i++) {
                 try {
@@ -514,6 +527,7 @@ class BitforexPositionGateway implements Interfaces.IPositionGateway {
 
     private _log = log("tribeca:gateway:BitofrexPG");
     constructor(private _http : BitforexHttp) {
+        console.log(colors.green('BITFOREX START POSITION GATEWAY'));
         setInterval(this.trigger, 15000);
         setTimeout(this.trigger, 10);
     }
@@ -540,7 +554,9 @@ class BitforexBaseGateway implements Interfaces.IExchangeDetailsGateway {
         return Models.Exchange.Bitforex;
     }
     
-    constructor(public minTickIncrement: number) {}
+    constructor(public minTickIncrement: number) {
+        console.log(colors.green('BITFOREX START BASE GATEWAY'));
+    }
 }
 
 // Inigo v1
@@ -552,18 +568,23 @@ class BitforexSymbolProvider {
     constructor(pair: Models.CurrencyPair) {
         const GetCurrencySymbol = (s: Models.Currency) : string => Models.fromCurrency(s);
         this.symbol = GetCurrencySymbol(pair.base) + "_" + GetCurrencySymbol(pair.quote);
-        this.coinSymbol = 'coin-' + pair.base + '-' + pair.quote;
+        this.coinSymbol = 'coin-' + GetCurrencySymbol(pair.quote).toLowerCase() + '-' + GetCurrencySymbol(pair.base).toLowerCase();
         this.symbolWithoutUnderscore = GetCurrencySymbol(pair.base) + GetCurrencySymbol(pair.quote);
     }
 }
 
 class Bitforex extends Interfaces.CombinedGateway {
     constructor(config : Config.IConfigProvider, pair: Models.CurrencyPair) {
+        console.log(colors.green('BITFOREX START SYMBOL'));
         var symbol = new BitforexSymbolProvider(pair);
+        console.log(colors.green('BITFOREX START SIGNER'));
         var signer = new BitforexMessageSigner(config);
+        console.log(colors.green('BITFOREX START HTTP'));
         var http = new BitforexHttp(config, signer);
+        console.log(colors.green('BITFOREX START SOCKET'));
         var socket = new BitforexWebsocket(config);
 
+        console.log(colors.green('BITFOREX START ORDER ENTRY GATEWAY'));
         var orderGateway = config.GetString("BitforexOrderDestination") == "Bitforex"
             ? <Interfaces.IOrderEntryGateway>new BitforexOrderEntryGateway(socket, http, signer, symbol)
             : new NullGateway.NullOrderGateway();
@@ -578,6 +599,7 @@ class Bitforex extends Interfaces.CombinedGateway {
 
 // Inigo v1
 export async function createBitforex(config : Config.IConfigProvider, pair: Models.CurrencyPair) : Promise<Interfaces.CombinedGateway> {
+    console.log(colors.green('BITFOREX START'));
     API_KEY = config.GetString("BitforexApiKey")
     API_SECRET = config.GetString("BitforexSecretKey")
     return new Bitforex(config, pair);

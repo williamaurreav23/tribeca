@@ -38,6 +38,7 @@
     "bufferutil": "^1.2.1",
     "bunyan": "1.8.10",
     "collections": "5.0.6",
+    "colors": "^1.4.0",
     "compression": "1.6.2",
     "connect": "3.6.0",
     "express": "4.15.2",

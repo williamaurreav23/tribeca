@@ -10,7 +10,11 @@ services:
       - tribeca-mongo
     ports:
       - "3000:3000"
+      - "9229:9229"
+    volumes:
+      - "./:/tribeca"
     tty: true
+    entrypoint: /bin/sh
   tribeca-mongo:
     image: mongo
     restart: on-failure
